@@ -1,0 +1,183 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct virus {
+    unsigned short SigSize; //2
+    char virusName[16]; //16
+    unsigned char* sig; //8
+} virus;
+typedef struct link link;
+struct link {
+    link *nextVirus;
+    virus *vir;
+};
+
+typedef struct {
+    char *name;
+    link* (*fun)(link*);
+}MenuItem;
+
+void PrintHex(FILE* output, unsigned char* buffer, unsigned short length) {
+    for(int i=0;i<length;i++){
+        fprintf(output,"%02hhX ",buffer[i]);
+    }
+    fprintf(output,"\n\n");
+}
+virus* readVirus(FILE* file){
+    virus* virus  = malloc(sizeof(struct virus));
+    if(fread(virus,1,18,file)!=0){
+        virus->sig=malloc(virus->SigSize);
+        fread(virus->sig,1,virus->SigSize,file);
+
+    }
+    return virus;
+}
+
+void printVirus(virus* virus, FILE* output){
+    fprintf(output,"virus name: %s\n", virus->virusName);
+    fprintf(output,"virus size: %d\n", virus->SigSize);
+    fprintf(output,"signature:\n");
+    PrintHex(output,virus->sig, virus->SigSize);
+}
+
+int get_file_size(FILE* file){
+    fseek(file, 0L, SEEK_END);
+    int file_size = ftell(file);
+    rewind(file);
+    return file_size;
+}
+
+/* Print the data of every link in list to the given stream. Each item followed by a newline character. */
+void list_print(link *virus_list, FILE* stream){
+    link* curr_link= virus_list;
+    while(curr_link!=NULL){
+        printVirus(curr_link->vir,stream);
+        curr_link=curr_link->nextVirus;
+    }
+}
+
+link* MakeNewNode(virus* data){
+    link* new_node = malloc(sizeof(struct link));
+    new_node->vir=data;
+    new_node->nextVirus=NULL;
+    return new_node;
+}
+
+/* Add a new link with the given data to the list
+   (either at the end or the beginning, depending on what your TA tells you),
+   and return a pointer to the list (i.e., the first link in the list).
+   If the list is null - create a new entry and return a pointer to the entry.
+reccursive function*/
+link* list_append(link* virus_list, virus* data){
+    if(virus_list==NULL){
+        link* new_node = MakeNewNode(data);
+        virus_list=new_node;
+    }
+    else{
+        virus_list->nextVirus=list_append(virus_list->nextVirus,data);
+    }
+    return virus_list;
+}
+
+/* Free the memory allocated by the list. */
+//recurrsive function
+void list_free(link *virus_list){
+    link* curr_node=virus_list;
+    if(curr_node!=NULL){
+        list_free(curr_node->nextVirus);
+        free(curr_node->vir->sig);
+        free(curr_node->vir);
+        free(curr_node);
+    }
+    return;
+}
+
+//extract the input from the user, check if valid and return numeric value of it
+int get_input_and_check_bounds(size_t size){
+    int picked_option;
+    printf("Option: ");
+    //picked_option=fgetc(stdin);
+    //picked_option=picked_option-48;
+    scanf("%d",&picked_option);
+    fgetc(stdin);//get rid of the newline char
+    if(picked_option<0 || picked_option>size){
+        picked_option=-1;//indicate to exit after freeing the memory allocated by malloc
+    }
+    return picked_option;
+}
+//displaying the menu
+void displayMenu(MenuItem menu[]){
+    for(int i=0; menu[i].name!=NULL ;i++){
+        printf("%d) %s\n",i+1,menu[i].name );
+    }
+}
+
+int calculate_length(MenuItem menu[]){
+    int counter=0;
+    while(menu[counter].name!=NULL){
+        counter++;
+    }
+    return counter;
+}
+
+link* print_scenario(link* list){
+    list_print(list,stdout);
+    return list;
+}
+
+link* load_list(FILE* file){
+    //getting the size of the file
+    link* head=NULL;
+    int file_size = get_file_size(file);
+    int readen_bytes = 0;
+    while(readen_bytes<file_size){
+        virus* virus = readVirus(file);
+        head=list_append(head,virus);
+        readen_bytes+=18+virus->SigSize;
+    }
+    return head;
+}
+
+link* load_scenario(link* link){
+    char* filename=NULL;
+    FILE* file;
+    printf("Please provide filename for the signature file:\n");
+    scanf("%ms",&filename);
+    //fgets(filename, MAX_FILENAME_LENGTH, stdin);
+    file = fopen(filename,"rb");
+    free(filename);
+    if(file==NULL){ // if a file can't be open
+        fprintf(stderr,"Error in openning filename : %s\n",filename);
+        exit(EXIT_FAILURE);
+    }
+    struct link *head;
+    head = load_list(file);
+    return head;
+}
+
+link* quit(link* list){
+    list_free(list);
+    exit(EXIT_SUCCESS);
+    return NULL;
+}
+
+int main(int argc, char const *argv[]) {
+    char picked_option;
+    link* list=NULL;
+    MenuItem menu[] = { { "Load signatures", load_scenario },{ "Print signature", print_scenario },
+                        { "Quit", quit }, { NULL, NULL } };
+
+    int array_length = calculate_length(menu);// without the null option
+    while(1){
+        displayMenu(menu);
+        picked_option=get_input_and_check_bounds(array_length)-1;
+        if(picked_option==-1){//handle invalid argument
+            exit(EXIT_SUCCESS);
+        }
+        else{
+            list = menu[picked_option].fun(list);
+        }
+    }
+    return 0;
+}

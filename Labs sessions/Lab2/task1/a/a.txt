@@ -1,0 +1,9 @@
+Global var: intialize outside of any function or static vars by the documantation located in the initialize data sagment (addr5, addr6,adrr0, addr1) start with a value 0f 0x5659c01[].
+yos var is initialize data becuase of that it's address fall into the same segmant
+
+Function decleration: (foo,foo1 foo2 point_at): lower addresses then the Global var which located in the initialize data so they are in the top part of the text data segmnet. Start with a value of 0x5659a8[][], part of the code.
+
+Stack located var: declared inside a function so they got an activation frame.(addr2, addr3 addr4- not its value,local ) high address values 0xff95cc[][]
+
+Heap locaed var: using malloc only the value of addr4 which has been assign on the heap.()address value lower then stack but higher then uninitialize data
+
